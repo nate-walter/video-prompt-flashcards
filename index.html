@@ -96,8 +96,10 @@ function advance(step) {
   card.classList.remove('changing');
   try { localStorage.setItem(storageKey, String(index)); } catch (_) {}
 }
-card.addEventListener('click', () => {
-  if (discardClick) { discardClick = false; return; }
+card.addEventListener('click', event => {
+  const suppress = discardClick && event.detail !== 0;
+  discardClick = false;
+  if (suppress) return;
   flip();
 });
 card.addEventListener('pointerdown', event => {
