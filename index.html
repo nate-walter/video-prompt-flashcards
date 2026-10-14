@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#ffffff">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Cards">
+<meta name="robots" content="noindex, nofollow">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'">
+<link rel="icon" href="data:,">
+<title>Cards</title>
+<style>
+/* Learn surface: one piece of information, no decoration. */
+:root { color-scheme: light; font-family: Helvetica, Arial, sans-serif; color: #000; background: #fff; }
+* { box-sizing: border-box; }
+html, body { margin: 0; width: 100%; height: 100%; background: #fff; color: #000; }
+body { height: 100dvh; display: flex; flex-direction: column; overflow: hidden; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+button { font: inherit; color: #000; background: #fff; border: 0; border-radius: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+#card { position: relative; flex: 1; width: 100%; min-height: 0; perspective: 1100px; cursor: pointer; touch-action: pan-y pinch-zoom; user-select: none; -webkit-user-select: none; }
+#paper { position: absolute; inset: 0; }
+.face { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: #fff; color: #000; animation: reveal 130ms ease; }
+.back, #card[data-side="back"] .front { display: none; }
+#card[data-side="back"] .back { display: flex; }
+#card.changing .face { animation: none; }
+@keyframes reveal { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.text { display: block; width: 240px; max-width: 68vw; font-family: Helvetica, Arial, sans-serif; font-size: 9px; font-weight: 400; line-height: 1.5; text-align: center; overflow-wrap: anywhere; }
+footer { flex: none; display: flex; align-items: center; justify-content: center; padding-bottom: env(safe-area-inset-bottom, 0px); font-size: 7px; line-height: 1; }
+footer button { width: 44px; height: 44px; font-size: 9px; cursor: pointer; touch-action: manipulation; }
+#hint { margin: 0 12px; text-align: center; white-space: nowrap; }
+#count { font-variant-numeric: tabular-nums; }
+button:focus-visible { outline: 1px solid #000; outline-offset: -5px; }
+button:focus:not(:focus-visible) { outline: none; }
+@media (prefers-reduced-motion: reduce) { .face { animation: none; } }
+</style>
+</head>
+<body>
+<button id="card" type="button" data-side="front" aria-label="subject_definitions" aria-describedby="hint">
+  <span id="paper" aria-hidden="true">
+    <span class="face front"><span class="text" id="front">subject_definitions</span></span>
+    <span class="face back"><span class="text" id="back">Defines referenced content and its reference labels</span></span>
+  </span>
+</button>
+<footer>
+  <button id="prev" type="button" aria-label="Previous card">‹</button>
+  <span id="hint"><span id="count" aria-live="polite">1 / 10</span> &nbsp; · &nbsp; tap to flip &nbsp; · &nbsp; swipe</span>
+  <button id="next" type="button" aria-label="Next card">›</button>
+</footer>
+<noscript>This deck needs JavaScript. Open this page in Safari.</noscript>
+<script>
+'use strict';
+const cards = [
+  ['subject_definitions', 'Defines referenced content and its reference labels'],
+  ['summary', 'Summarizes the task type, target video, and main reference relationships'],
+  ['retention_analysis', 'Describes how referenced content is preserved, transferred, or reused'],
+  ['detailed_description', 'Describes visuals, actions, shots, sound, and dialogue in playback order'],
+  ['overall_soundscape', 'Summarizes ambience and physical sounds'],
+  ['non_diegetic_music', 'Describes background music audible only to the audience'],
+  ['<Subject N>', 'Visible content abstracted from reference assets that can be reused or modified in the target video'],
+  ['<Picture N>', 'A reference image used as a concrete target frame or shot-planning anchor'],
+  ['<Video N>', 'A reference video that provides an editing source, continuation starting point, or whole-video temporal structure'],
+  ['<Audio N>', 'An audio signal that is copied or referenced']
+];
+const card = document.querySelector('#card');
+const front = document.querySelector('#front');
+const back = document.querySelector('#back');
+const count = document.querySelector('#count');
+const storageKey = 'video-prompt-cards-v1';
+let index = 0;
+let flipped = false;
+let start = null;
+let discardClick = false;
+try {
+  const saved = Number(localStorage.getItem(storageKey));
+  if (Number.isInteger(saved) && saved >= 0 && saved < cards.length) index = saved;
+} catch (_) { /* Storage is optional, including private browsing. */ }
+
+function render() {
+  front.textContent = cards[index][0];
+  back.textContent = cards[index][1];
+  card.dataset.side = flipped ? 'back' : 'front';
+  card.setAttribute('aria-label', cards[index][flipped ? 1 : 0]);
+  count.textContent = `${index + 1} / ${cards.length}`;
+}
+function flip() {
+  flipped = !flipped;
+  render();
+}
+function advance(step) {
+  index = (index + step + cards.length) % cards.length;
+  flipped = false;
+  card.classList.add('changing');
+  render();
+  void card.offsetWidth;
+  card.classList.remove('changing');
+  try { localStorage.setItem(storageKey, String(index)); } catch (_) {}
+}
+card.addEventListener('click', () => {
+  if (discardClick) { discardClick = false; return; }
+  flip();
+});
+card.addEventListener('pointerdown', event => {
+  if (!event.isPrimary || (event.pointerType === 'mouse' && event.button !== 0)) {
+    start = null;
+    discardClick = true;
+    return;
+  }
+  discardClick = false;
+  start = {x: event.clientX, y: event.clientY, id: event.pointerId};
+  try { card.setPointerCapture(event.pointerId); } catch (_) {}
+});
+card.addEventListener('pointerup', event => {
+  if (!start || event.pointerId !== start.id) return;
+  const dx = event.clientX - start.x;
+  const dy = event.clientY - start.y;
+  start = null;
+  if (Math.hypot(dx, dy) > 12) discardClick = true;
+  if (Math.abs(dx) >= 40 && Math.abs(dx) > Math.abs(dy) * 1.25) {
+    discardClick = true;
+    advance(dx < 0 ? 1 : -1);
+  }
+});
+card.addEventListener('pointercancel', () => { start = null; discardClick = true; });
+document.querySelector('#prev').addEventListener('click', () => advance(-1));
+document.querySelector('#next').addEventListener('click', () => advance(1));
+document.addEventListener('keydown', event => {
+  if (event.altKey || event.ctrlKey || event.metaKey) return;
+  if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+    event.preventDefault();
+    advance(event.key === 'ArrowRight' ? 1 : -1);
+  }
+});
+render();
+</script>
+</body>
+</html>
